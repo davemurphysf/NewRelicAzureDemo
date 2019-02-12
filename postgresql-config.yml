@@ -1,0 +1,19 @@
+integration_name: com.newrelic.postgresql
+
+instances:
+  # A name for the collection
+  - name: nr-got-az-pg
+    # The only supported command is all_data.
+    command: all_data
+    arguments:
+      # The username for the Postgres instance. Required.
+      username: ${username}
+      # The password for the Postgres instance. Required.
+      password: ${password}
+      # The JSON object which contains the entities to monitor. The nesting
+      # levels of JSON are database name -> schema name -> table name -> index name.
+      collection_list: '{"postgres":{"public":{"pg_table1":["pg_index1","pg_index2"],"pg_table2":[]}}}'
+    # Used to label your data.
+    labels:
+      env: production
+      role: postgresql
