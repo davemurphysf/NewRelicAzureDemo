@@ -34,6 +34,7 @@ resource "azurerm_virtual_machine" "app" {
     depends_on                          = ["azurerm_virtual_machine.bastion"]
     delete_os_disk_on_termination       = true
     delete_data_disks_on_termination    = true
+    tags                                = "${var.tags}"
 
     storage_image_reference {
         publisher = "${var.image_publisher}"
@@ -87,6 +88,4 @@ resource "azurerm_virtual_machine" "app" {
         "sudo apt-get update && sudo apt-get install newrelic-infra -y"
         ]
     }
-
-  tags = "${var.tags}"
 }
