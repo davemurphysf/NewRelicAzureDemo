@@ -12,7 +12,7 @@ resource "azurerm_network_interface" "db-nic" {
 }
 
 data "template_file" "nr_pg_config" {
-    template = "${file("postgresql-config.yml")}"
+    template = "${file("pg-config.yml")}"
     vars = {
         username = "${var.pg_nr_username}"
         password = "${var.pg_nr_password}"
@@ -20,7 +20,7 @@ data "template_file" "nr_pg_config" {
 }
 
 data "template_file" "pg_init" {
-    template = "${file("postgresql-init.sql")}"
+    template = "${file("pg-init.sql")}"
     vars = {
         username = "${var.pg_nr_username}"
         password = "${var.pg_nr_password}"
