@@ -25,20 +25,15 @@ resource "azurerm_network_interface" "bastion-ext-nic" {
 }
 
 resource "azurerm_virtual_machine" "bastion" {
-    name                  = "${var.rg_prefix}-bastion-vm"
-    location              = "${var.location}"
-    resource_group_name   = "${azurerm_resource_group.rg.name}"
-    vm_size               = "${var.vm_size}"
-    primary_network_interface_id = "${azurerm_network_interface.bastion-ext-nic.id}"
-    network_interface_ids = ["${azurerm_network_interface.bastion-nic.id}", "${azurerm_network_interface.bastion-ext-nic.id}"]
-
-    # This means the OS Disk will be deleted when Terraform destroys the Virtual Machine
-    # NOTE: This may not be optimal in all cases.
-    delete_os_disk_on_termination = true
-
-    # This means the Data Disk Disk will be deleted when Terraform destroys the Virtual Machine
-    # NOTE: This may not be optimal in all cases.
-    delete_data_disks_on_termination = true
+    name                                = "${var.rg_prefix}-bastion-vm"
+    location                            = "${var.location}"
+    resource_group_name                 = "${azurerm_resource_group.rg.name}"
+    vm_size                             = "${var.vm_size}"
+    primary_network_interface_id        = "${azurerm_network_interface.bastion-ext-nic.id}"
+    network_interface_ids               = ["${azurerm_network_interface.bastion-nic.id}", "${azurerm_network_interface.bastion-ext-nic.id}"]
+    delete_os_disk_on_termination       = true
+    delete_data_disks_on_termination    = true
+    tags                                = "${var.tags}"
 
     storage_image_reference {
         publisher = "${var.image_publisher}"
