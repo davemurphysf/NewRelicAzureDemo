@@ -83,23 +83,6 @@ resource "azurerm_virtual_machine" "db" {
         timeout         = "5m"
     }
 
-    # provisioner "remote-exec" {
-    #     inline = [
-    #         "sudo mkdir -p /etc/newrelic-infra/integrations.d/",
-    #         "sudo mkdir -p /tmp"
-    #     ]
-    # }
-
-    # provisioner "file" {
-    #     content      = "${data.template_file.nr_pg_config.rendered}"
-    #     destination  = "/etc/newrelic-infra/integrations.d/postgresql-config.yml"
-    # }
-
-    provisioner "file" {
-        content     = "${data.template_file.pg_init.rendered}"
-        destination = "/tmp/pg-init.sql"
-    }
-
     provisioner "remote-exec" {
         inline = [
             "printf \"license_key: ${var.nr_license_key}\" | sudo tee -a /etc/newrelic-infra.yml",
