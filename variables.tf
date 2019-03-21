@@ -1,8 +1,7 @@
 variable "subscription_id" {
   description = "Azure subscription id; use `az account show`"
 }
-# variable "client_id" {}
-# variable "client_secret" {}
+
 variable "tenant_id" {
   description = "Azure tennant id; use (az account show)"
 }
@@ -67,7 +66,7 @@ variable "storage_replication_type" {
 
 variable "vm_size" {
   description = "Specifies the size of the virtual machine."
-  default     = "Standard_B1s"
+  default     = "Standard_B2ms"
 }
 
 variable "image_publisher" {
@@ -112,11 +111,11 @@ variable "pg_password" {
 }
 
 variable "pg_nr_username" {
-  description = "Postgres username for the application"
-  default     = "app_pg_username"
+  description = "Postgres username for the New Relic"
+  default     = "nr_pg_username"
 }
 
 variable "pg_nr_password" {
-  description = "Postgres password for the application"
-  default     = "ThisIsAVeryLongPasswordAndIsVerySecure"
+  description = "Postgres password for the New Relic"
+  default     = "ThisIsAlsoAVeryLongPasswordAndIsVerySecure"
 }
