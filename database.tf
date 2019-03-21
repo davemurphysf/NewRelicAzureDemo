@@ -11,6 +11,20 @@ resource "azurerm_network_interface" "db-nic" {
     }
 }
 
+resource "azurerm_network_interface" "db-ext-nic" {
+    name                        = "${var.rg_prefix}-db-ext-nic"
+    location                    = "${var.location}"
+    resource_group_name         = "${azurerm_resource_group.rg.name}"
+    network_security_group_id   = "${azurerm_network_security_group.db-ext-nsg.id}"
+
+    ip_configuration {
+        name                          = "${var.rg_prefix}-db-ext-ipconfig"
+        subnet_id                     = "${azurerm_subnet.external-subnet.id}"
+        private_ip_address_allocation = "Dynamic"
+        public_ip_address_id          = "${azurerm_public_ip.db-pip.id}" 
+    }
+}
+
 data "template_file" "nr_pg_config" {
     template = "${file("pg-config.yml")}"
     vars = {
@@ -22,8 +36,17 @@ data "template_file" "nr_pg_config" {
 data "template_file" "pg_init" {
     template = "${file("pg-init.sql")}"
     vars = {
-        username = "${var.pg_nr_username}"
-        password = "${var.pg_nr_password}"
+        nr_username = "${var.pg_nr_username}"
+        nr_password = "${var.pg_nr_password}"
+        username = "${var.pg_username}"
+        password = "${var.pg_password}"
+    }
+}
+
+data "template_file" "pg_hba" {
+    template = "${file("pg_hba.conf")}"
+    vars = {
+        internal_subnet = "${var.internal_subnet_prefix}"
     }
 }
 
@@ -32,8 +55,8 @@ resource "azurerm_virtual_machine" "db" {
     location                            = "${var.location}"
     resource_group_name                 = "${azurerm_resource_group.rg.name}"
     vm_size                             = "${var.vm_size}"
-    primary_network_interface_id        = "${azurerm_network_interface.db-nic.id}"
-    network_interface_ids               = ["${azurerm_network_interface.db-nic.id}"]
+    primary_network_interface_id        = "${azurerm_network_interface.db-ext-nic.id}"
+    network_interface_ids               = ["${azurerm_network_interface.db-ext-nic.id}", "${azurerm_network_interface.db-nic.id}"]
     delete_os_disk_on_termination       = true
     delete_data_disks_on_termination    = true
     tags                                = "${var.tags}"
@@ -74,22 +97,58 @@ resource "azurerm_virtual_machine" "db" {
     connection {
         type            = "ssh"
         user            = "${var.admin_username}"        
-        host            = "${azurerm_network_interface.db-nic.private_ip_address}"
+        host            = "${azurerm_public_ip.db-pip.fqdn}"
         private_key     = "${file("~/.ssh/id_rsa")}"
         timeout         = "5m"
     }
 
+    provisioner "file" {
+        source      = "atlas_of_thrones.sql"
+        destination = "/tmp/atlas_of_thrones.sql"
+    }
+
+    provisioner "file" {
+        content = "${data.template_file.nr_pg_config.rendered}"
+        destination = "/tmp/postgresql-config.yml"
+    }
+
+    provisioner "file" {
+        content = "${data.template_file.pg_init.rendered}"
+        destination = "/tmp/pg-init.sql"
+    }
+
+    provisioner "file" {
+        content = "${data.template_file.pg_hba.rendered}"
+        destination = "/tmp/pg_hba.conf"
+    }
+
+    provisioner "file" {
+        source      = "postgresql.conf"
+        destination = "/tmp/postgresql.conf"
+    }
+
     provisioner "remote-exec" {
         inline = [
-            "printf \"license_key: ${var.nr_license_key}\" | sudo tee -a /etc/newrelic-infra.yml",
+            "printf \"license_key: ${var.nr_license_key}\n\" | sudo tee -a /etc/newrelic-infra.yml",
+            "printf \"display_name: ${var.hostname}-db\n\" | sudo tee -a /etc/newrelic-infra.yml",
             "curl https://download.newrelic.com/infrastructure_agent/gpg/newrelic-infra.gpg | sudo apt-key add -",
-            "printf \"deb [arch=amd64] https://download.newrelic.com/infrastructure_agent/linux/apt xenial main\" | sudo tee -a /etc/apt/sources.list.d/newrelic-infra.list",
-            "sudo apt-get update && sudo apt-get install newrelic-infra nri-postgresql postgresql postgresql-contrib -y",
-            "sudo wget https://cdn.patricktriest.com/atlas-of-thrones/atlas_of_thrones.sql",
-            "sudo -i -u postgres psql -a -f /tmp/pg-init.sql",
-            "sudo -u postgres psql -a atlas_of_thrones < atlas_of_thrones.sql",
-            "printf \"${data.template_file.pg_init.rendered}\" | sudo tee -a /etc/newrelic-infra/integrations.d/postgresql-config.yml",
-            "sudo systemctl restart newrelic-infra"
+            "printf \"deb [arch=amd64] https://download.newrelic.com/infrastructure_agent/linux/apt bionic main\" | sudo tee -a /etc/apt/sources.list.d/newrelic-infra.list",
+            "sudo apt update && sudo apt install newrelic-infra nri-postgresql postgresql-10 postgresql-contrib postgis -y",
+            "sudo cp /tmp/postgresql-config.yml /etc/newrelic-infra/integrations.d/postgresql-config.yml",
+            "sudo chmod +r /tmp/pg-init.sql",
+            "sudo -u postgres psql -a -f /tmp/pg-init.sql",
+            "echo \"After sql init\" ",
+            "sudo chmod +r /tmp/atlas_of_thrones.sql",
+            "sudo -u postgres psql -a atlas_of_thrones < /tmp/atlas_of_thrones.sql",
+            "echo \"After sql dump restore\" ",
+            "sudo cp /tmp/pg_hba.conf /etc/postgresql/10/main/pg_hba.conf",
+            "echo \"After hba\" ",
+            "sudo chown postgres:postgres /etc/postgresql/10/main/pg_hba.conf",
+            "sudo cp /tmp/postgresql.conf /etc/postgresql/10/main/postgresql.conf",
+            "sudo chown postgres:postgres /etc/postgresql/10/main/postgresql.conf",
+            "sudo systemctl restart postgresql",
+            "sudo systemctl start newrelic-infra",
+            "sudo shutdown -r 1"
         ]
     }
 }
