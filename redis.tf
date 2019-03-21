@@ -58,9 +58,6 @@ resource "azurerm_virtual_machine" "redis" {
 
     connection {
         type            = "ssh"
-        bastion_host    = "${azurerm_public_ip.bastion-pip.fqdn}"
-        bastion_user    = "${var.admin_username}" 
-        bastion_private_key = "${file("~/.ssh/id_rsa")}"
         user            = "${var.admin_username}"        
         host            = "${azurerm_network_interface.redis-nic.private_ip_address}"
         private_key     = "${file("~/.ssh/id_rsa")}"

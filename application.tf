@@ -31,7 +31,6 @@ resource "azurerm_virtual_machine" "app" {
     vm_size                             = "${var.vm_size}"
     primary_network_interface_id        = "${azurerm_network_interface.app-ext-nic.id}"
     network_interface_ids               = ["${azurerm_network_interface.app-nic.id}", "${azurerm_network_interface.app-ext-nic.id}"]
-    depends_on                          = ["azurerm_virtual_machine.bastion"]
     delete_os_disk_on_termination       = true
     delete_data_disks_on_termination    = true
     tags                                = "${var.tags}"
@@ -71,9 +70,6 @@ resource "azurerm_virtual_machine" "app" {
 
     connection {
         type            = "ssh"
-        bastion_host    = "${azurerm_public_ip.bastion-pip.fqdn}"
-        bastion_user    = "${var.admin_username}" 
-        bastion_private_key = "${file("~/.ssh/id_rsa")}"
         user            = "${var.admin_username}"        
         host            = "${azurerm_network_interface.app-nic.private_ip_address}"
         private_key     = "${file("~/.ssh/id_rsa")}"

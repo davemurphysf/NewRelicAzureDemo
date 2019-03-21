@@ -47,12 +47,12 @@ resource "azurerm_public_ip" "app-pip" {
   tags                         = "${var.tags}"
 }
 
-resource "azurerm_public_ip" "bastion-pip" {
-  name                         = "${var.rg_prefix}-bastion-ip"
+resource "azurerm_public_ip" "db-pip" {
+  name                         = "${var.rg_prefix}-db-ip"
   location                     = "${var.location}"
   resource_group_name          = "${azurerm_resource_group.rg.name}"
   allocation_method            = "Dynamic"
-  domain_name_label            = "${var.dns_name}-bastion"
+  domain_name_label            = "${var.dns_name}-db"
   tags                         = "${var.tags}"
 }
 
@@ -75,8 +75,8 @@ resource "azurerm_network_security_group" "app-ext-nsg" {
   }
 }
 
-resource "azurerm_network_security_group" "bastion-ext-nsg" {
-  name                = "${var.rg_prefix}-bastion-ext-nsg"
+resource "azurerm_network_security_group" "db-ext-nsg" {
+  name                = "${var.rg_prefix}-db-ext-nsg"
   location            = "${var.location}"
   resource_group_name = "${azurerm_resource_group.rg.name}"
 
