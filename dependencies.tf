@@ -56,6 +56,15 @@ resource "azurerm_public_ip" "db-pip" {
   tags                         = "${var.tags}"
 }
 
+resource "azurerm_public_ip" "redis-pip" {
+  name                         = "${var.rg_prefix}-redis-ip"
+  location                     = "${var.location}"
+  resource_group_name          = "${azurerm_resource_group.rg.name}"
+  allocation_method            = "Dynamic"
+  domain_name_label            = "${var.dns_name}-redis"
+  tags                         = "${var.tags}"
+}
+
 resource "azurerm_network_security_group" "app-ext-nsg" {
   name                = "${var.rg_prefix}-app-ext-nsg"
   location            = "${var.location}"
@@ -73,6 +82,32 @@ resource "azurerm_network_security_group" "app-ext-nsg" {
     source_address_prefix      = "*"
     destination_address_prefix = "*"
   }
+
+  security_rule {
+    name                       = "allow_API"
+    description                = "Allow API access"
+    priority                   = 120
+    direction                  = "Inbound"
+    access                     = "Allow"
+    protocol                   = "Tcp"
+    source_port_range          = "*"
+    destination_port_range     = "5000"
+    source_address_prefix      = "*"
+    destination_address_prefix = "*"
+  }
+
+  security_rule {
+    name                       = "allow_SSH"
+    description                = "Allow SSH access"
+    priority                   = 110
+    direction                  = "Inbound"
+    access                     = "Allow"
+    protocol                   = "Tcp"
+    source_port_range          = "*"
+    destination_port_range     = "22"
+    source_address_prefix      = "*"
+    destination_address_prefix = "*"
+  }
 }
 
 resource "azurerm_network_security_group" "db-ext-nsg" {
@@ -81,9 +116,54 @@ resource "azurerm_network_security_group" "db-ext-nsg" {
   resource_group_name = "${azurerm_resource_group.rg.name}"
 
   security_rule {
-    name                       = "allow_SSH"    
-    description                = "Allow SSH access"
+    name                       = "allow_psql"
+    description                = "Allow Postgres access"
     priority                   = 100
+    direction                  = "Inbound"
+    access                     = "Allow"
+    protocol                   = "Tcp"
+    source_port_range          = "*"
+    destination_port_range     = "5432"
+    source_address_prefix      = "*"
+    destination_address_prefix = "*"
+  }
+
+  security_rule {
+    name                       = "allow_SSH"
+    description                = "Allow SSH access"
+    priority                   = 110
+    direction                  = "Inbound"
+    access                     = "Allow"
+    protocol                   = "Tcp"
+    source_port_range          = "*"
+    destination_port_range     = "22"
+    source_address_prefix      = "*"
+    destination_address_prefix = "*"
+  }
+}
+
+resource "azurerm_network_security_group" "redis-ext-nsg" {
+  name                = "${var.rg_prefix}-redis-ext-nsg"
+  location            = "${var.location}"
+  resource_group_name = "${azurerm_resource_group.rg.name}"
+
+  security_rule {
+    name                       = "allow_redis"
+    description                = "Allow Redis access"
+    priority                   = 100
+    direction                  = "Inbound"
+    access                     = "Allow"
+    protocol                   = "Tcp"
+    source_port_range          = "*"
+    destination_port_range     = "6379"
+    source_address_prefix      = "*"
+    destination_address_prefix = "*"
+  }
+
+  security_rule {
+    name                       = "allow_SSH"
+    description                = "Allow SSH access"
+    priority                   = 110
     direction                  = "Inbound"
     access                     = "Allow"
     protocol                   = "Tcp"
@@ -99,18 +179,18 @@ resource "azurerm_network_security_group" "db-nsg" {
   location            = "${var.location}"
   resource_group_name = "${azurerm_resource_group.rg.name}"
 
-  security_rule {
-    name                       = "allow_SSH"    
-    description                = "Allow SSH access"
-    priority                   = 100
-    direction                  = "Inbound"
-    access                     = "Allow"
-    protocol                   = "Tcp"
-    source_port_range          = "*"
-    destination_port_range     = "22"
-    source_address_prefix      = "${var.internal_subnet_prefix}"
-    destination_address_prefix = "*"
-  }
+  # security_rule {
+  #   name                       = "allow_SSH"    
+  #   description                = "Allow SSH access"
+  #   priority                   = 100
+  #   direction                  = "Inbound"
+  #   access                     = "Allow"
+  #   protocol                   = "Tcp"
+  #   source_port_range          = "*"
+  #   destination_port_range     = "22"
+  #   source_address_prefix      = "${var.internal_subnet_prefix}"
+  #   destination_address_prefix = "*"
+  # }
 
   security_rule {
     name                       = "allow_Postgres"    
@@ -131,18 +211,18 @@ resource "azurerm_network_security_group" "redis-nsg" {
   location            = "${var.location}"
   resource_group_name = "${azurerm_resource_group.rg.name}"
 
-  security_rule {
-    name                       = "allow_SSH"    
-    description                = "Allow SSH access"
-    priority                   = 100
-    direction                  = "Inbound"
-    access                     = "Allow"
-    protocol                   = "Tcp"
-    source_port_range          = "*"
-    destination_port_range     = "22"
-    source_address_prefix      = "${var.internal_subnet_prefix}"
-    destination_address_prefix = "*"
-  }
+  # security_rule {
+  #   name                       = "allow_SSH"    
+  #   description                = "Allow SSH access"
+  #   priority                   = 100
+  #   direction                  = "Inbound"
+  #   access                     = "Allow"
+  #   protocol                   = "Tcp"
+  #   source_port_range          = "*"
+  #   destination_port_range     = "22"
+  #   source_address_prefix      = "${var.internal_subnet_prefix}"
+  #   destination_address_prefix = "*"
+  # }
 
   security_rule {
     name                       = "allow_Redis"    
@@ -153,6 +233,25 @@ resource "azurerm_network_security_group" "redis-nsg" {
     protocol                   = "Tcp"
     source_port_range          = "*"
     destination_port_range     = "6379"
+    source_address_prefix      = "${var.internal_subnet_prefix}"
+    destination_address_prefix = "*"
+  }
+}
+
+resource "azurerm_network_security_group" "app-nsg" {
+  name                = "${var.rg_prefix}-app-nsg"
+  location            = "${var.location}"
+  resource_group_name = "${azurerm_resource_group.rg.name}"
+
+  security_rule {
+    name                       = "allow_SSH"    
+    description                = "Allow SSH access"
+    priority                   = 100
+    direction                  = "Inbound"
+    access                     = "Allow"
+    protocol                   = "Tcp"
+    source_port_range          = "*"
+    destination_port_range     = "22"
     source_address_prefix      = "${var.internal_subnet_prefix}"
     destination_address_prefix = "*"
   }
