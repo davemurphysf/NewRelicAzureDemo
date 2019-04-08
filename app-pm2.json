@@ -1,0 +1,21 @@
+{
+  "apps" : [{
+    "name"        : "aot-app",
+    "script"      : "/app/aot/index.js",
+    "watch"       : false,
+    "error_file"  : "/var/log/pm2/pm2-err.log",
+    "out_file"    : "/var/log/pm2/pm2-out.log",
+    "pid_file"    : "/home/app/app.pid",
+    "cwd"         : "/app/aot",
+    "env": {
+        "NODE_ENV": "development",
+        "DATABASE_URL": "postgres://${postgres_user}:${postgres_pw}@${postgres_host}:5432/atlas_of_thrones?ssl=false",
+        "REDIS_HOST": "${redis_host}"
+    },
+    "env_production" : {
+        "NODE_ENV": "production",
+        "DATABASE_URL": "postgres://${postgres_user}:${postgres_pw}@${postgres_host}:5432/atlas_of_thrones?ssl=false",
+        "REDIS_HOST": "${redis_host}"
+    }
+  }]
+}
