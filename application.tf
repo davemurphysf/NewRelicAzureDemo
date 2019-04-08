@@ -98,12 +98,35 @@ resource "azurerm_virtual_machine" "app" {
         timeout         = "5m"
     }
 
+    provisioner "file" {
+        source      = "nginx.conf"
+        destination = "~/nginx.conf"
+    }
+
     provisioner "remote-exec" {
         inline = [
-        "echo \"license_key: ${var.nr_license_key}\" | sudo tee -a /etc/newrelic-infra.yml",
-        "curl https://download.newrelic.com/infrastructure_agent/gpg/newrelic-infra.gpg | sudo apt-key add -",
-        "printf \"deb [arch=amd64] https://download.newrelic.com/infrastructure_agent/linux/apt bionic main\" | sudo tee -a /etc/apt/sources.list.d/newrelic-infra.list",
-        "sudo apt-get update && sudo apt-get install newrelic-infra -y"
+            "cloud-init status --wait > /dev/null 2>&1",
+            "curl https://download.newrelic.com/infrastructure_agent/gpg/newrelic-infra.gpg | sudo apt-key add -",
+            "curl -sL https://deb.nodesource.com/setup_10.x | sudo -E bash -",
+            "sudo apt update",
+            "sudo apt install gcc g++ make nginx newrelic-infra nodejs -y",
+            "sudo cp nginx.conf /etc/nginx/nginx.conf",            
+            "git clone https://github.com/davemurphysf/Atlas-Of-Thrones.git ~/app",
+            "sed -i 's#https://api.atlasofthrones.com/#http://${azurerm_public_ip.app-pip.fqdn}:5000/#' ~/app/package.json",
+            "(cd ~/app && npm i)",
+            "(cd ~/app && npm run build)",
+            "sudo mkdir -p /app/aot",
+            "sudo chmod +t /app/aot",
+            "sudo chmod -R 0777 /app/aot",            
+            "sudo mv ~/app/* /app/aot",
+            "sudo chown app:app -R /app/aot",
+            "sudo npm i -g pm2",
+            "sudo mkdir -p /var/log/pm2",
+            "sudo chown app:app /var/log/pm2",
+            "sudo -u app PM2_HOME='/app/aot/.pm2' pm2 start /etc/pm2_config.json --env production",
+            "sudo env PM2_HOME='/app/aot' PATH=$PATH:/usr/bin /usr/lib/node_modules/pm2/bin/pm2 startup systemd -u app --hp /app/aot",
+            "sudo -u app PM2_HOME='/app/aot/.pm2' pm2 save",
+            "sudo shutdown -r 1"
         ]
     }
 }
