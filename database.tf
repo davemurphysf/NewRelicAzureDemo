@@ -43,6 +43,14 @@ data "template_file" "pg_init" {
     }
 }
 
+data "template_file" "pg_permissions" {
+    template = "${file("pg-permissions.sql")}"
+    vars = {
+        nr_username = "${var.pg_nr_username}"
+        username = "${var.pg_username}"
+    }
+}
+
 data "template_file" "pg_hba" {
     template = "${file("pg_hba.conf")}"
     vars = {
@@ -70,7 +78,7 @@ resource "azurerm_virtual_machine" "db" {
 
     storage_os_disk {
         name              = "${var.hostname}-db-osdisk"
-        managed_disk_type = "Standard_LRS"
+        managed_disk_type = "Premium_LRS"
         caching           = "ReadWrite"
         create_option     = "FromImage"
     }
@@ -127,13 +135,19 @@ resource "azurerm_virtual_machine" "db" {
         destination = "/tmp/postgresql.conf"
     }
 
+    provisioner "file" {
+        content = "${data.template_file.pg_permissions.rendered}"
+        destination = "/tmp/pg-permissions.sql"
+    }
+
     provisioner "remote-exec" {
         inline = [
             "printf \"license_key: ${var.nr_license_key}\n\" | sudo tee -a /etc/newrelic-infra.yml",
             "printf \"display_name: ${var.hostname}-db\n\" | sudo tee -a /etc/newrelic-infra.yml",
             "curl https://download.newrelic.com/infrastructure_agent/gpg/newrelic-infra.gpg | sudo apt-key add -",
             "printf \"deb [arch=amd64] https://download.newrelic.com/infrastructure_agent/linux/apt bionic main\" | sudo tee -a /etc/apt/sources.list.d/newrelic-infra.list",
-            "sudo apt update && sudo apt install newrelic-infra nri-postgresql postgresql-10 postgresql-contrib postgis -y",
+            "sudo apt update",
+            "sudo apt install newrelic-infra nri-postgresql postgresql-10 postgresql-contrib postgis -y",
             "sudo cp /tmp/postgresql-config.yml /etc/newrelic-infra/integrations.d/postgresql-config.yml",
             "sudo chmod +r /tmp/pg-init.sql",
             "sudo -u postgres psql -a -f /tmp/pg-init.sql",
@@ -141,6 +155,8 @@ resource "azurerm_virtual_machine" "db" {
             "sudo chmod +r /tmp/atlas_of_thrones.sql",
             "sudo -u postgres psql -a atlas_of_thrones < /tmp/atlas_of_thrones.sql",
             "echo \"After sql dump restore\" ",
+            "sudo -u postgres psql -a atlas_of_thrones < /tmp/pg-permissions.sql",
+            "echo \"After sql permissions\" ",
             "sudo cp /tmp/pg_hba.conf /etc/postgresql/10/main/pg_hba.conf",
             "echo \"After hba\" ",
             "sudo chown postgres:postgres /etc/postgresql/10/main/pg_hba.conf",
